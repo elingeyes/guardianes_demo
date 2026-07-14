@@ -24,7 +24,7 @@ public class Main extends ApplicationAdapter {
 
     //Posicion del personaje
     private float posXPersonaje = 100;
-    private float posYPersonaje = 170;
+    private float posYPersonaje = 255;
     private float velocidad = 200f;
     private float ancho = 50;
     private float altoNormal = 70;
@@ -46,6 +46,11 @@ public class Main extends ApplicationAdapter {
     //Agacharse
     private boolean isCrouching = false;
     private int crouchFrameIndex = 0;
+
+    //Plataformas
+    private Array<Rectangle> plataformas;
+    private Array<Integer> plataformasTipo;
+    private boolean tocandoPlataforma = false;
 
     @Override
     public void create() {
@@ -79,6 +84,34 @@ public class Main extends ApplicationAdapter {
         bloques[3] = new Texture("blocks/block_4.png");
 
         personajeActual = personajeWalk[0];
+
+        // Inicializar plataformas
+        inicializarPlataformas();
+    }
+
+    private void inicializarPlataformas() {
+        plataformas = new Array<>();
+        plataformasTipo = new Array<>();
+
+        // Plataforma base (suelo)
+        plataformas.add(new Rectangle(0, 130, 600, 20));
+        plataformasTipo.add(0);
+
+        // Bloque 1 - posición x=80, y=250
+        plataformas.add(new Rectangle(80, 250, 80, 80));
+        plataformasTipo.add(0);
+
+        // Bloque 2 - posición x=200, y=300
+        plataformas.add(new Rectangle(200, 300, 80, 80));
+        plataformasTipo.add(1);
+
+        // Bloque 3 - posición x=320, y=280
+        plataformas.add(new Rectangle(320, 280, 80, 80));
+        plataformasTipo.add(2);
+
+        // Bloque 4 - posición x=440, y=320
+        plataformas.add(new Rectangle(440, 320, 80, 80));
+        plataformasTipo.add(3);
     }
 
     @Override
@@ -92,13 +125,14 @@ public class Main extends ApplicationAdapter {
         ScreenUtils.clear(0.15f, 0.15f, 0.2f, 1f);
         batch.begin();
         batch.draw(fondo, 0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
-        
-        // Dibujar bloques como plataformas
-        batch.draw(bloques[0], 80, 250, 80, 80);      // Bloque 1
-        batch.draw(bloques[1], 200, 300, 80, 80);     // Bloque 2
-        batch.draw(bloques[2], 320, 280, 80, 80);     // Bloque 3
-        batch.draw(bloques[3], 440, 320, 80, 80);     // Bloque 4
-        
+
+        // Dibujar bloques desde el array de plataformas
+        for (int i = 0; i < plataformas.size; i++) {
+            Rectangle plat = plataformas.get(i);
+            int tipo = plataformasTipo.get(i);
+            batch.draw(bloques[tipo], plat.x, plat.y, plat.width, plat.height);
+        }
+
         float altoActual = isCrouching ? altoCrouch : altoNormal;
         batch.draw(personajeActual, posXPersonaje, posYPersonaje, ancho, altoActual);
         batch.end();
@@ -125,6 +159,7 @@ public class Main extends ApplicationAdapter {
             jumpFrameIndex = 0;
             tiempoAnimacion = 0;
             personajeActual = personajeJump[0];
+            personajeActual = personajeJump[0];
         }
 
         // Crouch when DOWN is pressed and not jumping
@@ -149,8 +184,8 @@ public class Main extends ApplicationAdapter {
             velocityY += gravity * deltaTime;
             posYPersonaje += velocityY * deltaTime;
             // Ground collision
-            if (posYPersonaje <= 170f) {
-                posYPersonaje = 170f;
+            if (posYPersonaje <= 255f) {
+                posYPersonaje = 255f;
                 isJumping = false;
                 velocityY = 0f;
                 jumpFrameIndex = 0;
