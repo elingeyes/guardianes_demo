@@ -15,6 +15,7 @@ public class Main extends ApplicationAdapter {
     //Variables del juego
     private Texture fondo;
     private Texture[] personajeWalk;
+    private Texture[] personajeJump;
     private Texture personajeActual;
 
     //Posicion del personaje
@@ -23,45 +24,61 @@ public class Main extends ApplicationAdapter {
     private float velocidad = 200f;
     private float ancho = 50;
     private float alto = 70;
-    
-    //Animación
+
+    //Animación caminata
     private int frameActual = 0;
     private float tiempoAnimacion = 0;
     private float tiempoEntreFrames = 0.15f;
     private boolean seEstaMoviendo = false;
 
+    //Salto
+    private boolean isJumping = false;
+    private float velocityY = 0f;
+    private float gravity = -1000f; // px/s^2
+    private float jumpVelocity = 450f;
+    private int jumpFrameIndex = 0;
+
     @Override
     public void create() {
         batch = new SpriteBatch();
-        
+
         fondo = new Texture("background.png");
-        
+
+        // Walk frames
         personajeWalk = new Texture[4];
         personajeWalk[0] = new Texture("characters/player/guardian/walk/walk_1.png");
         personajeWalk[1] = new Texture("characters/player/guardian/walk/walk_2.png");
         personajeWalk[2] = new Texture("characters/player/guardian/walk/walk_3.png");
         personajeWalk[3] = new Texture("characters/player/guardian/walk/walk_4.png");
-        
+
+        // Jump frames
+        personajeJump = new Texture[3];
+        personajeJump[0] = new Texture("characters/player/guardian/jump/jump_1.png");
+        personajeJump[1] = new Texture("characters/player/guardian/jump/jump_2.png");
+        personajeJump[2] = new Texture("characters/player/guardian/jump/jump_3.png");
+
         personajeActual = personajeWalk[0];
     }
 
     @Override
     public void render() {
         float deltaTime = Gdx.graphics.getDeltaTime();
-        
+
         handleInput(deltaTime);
+        updatePhysics(deltaTime);
         updateAnimation(deltaTime);
-        
+
         ScreenUtils.clear(0.15f, 0.15f, 0.2f, 1f);
         batch.begin();
         batch.draw(fondo, 0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
         batch.draw(personajeActual, posXPersonaje, posYPersonaje, ancho, alto);
         batch.end();
     }
-    
+
     private void handleInput(float deltaTime) {
         seEstaMoviendo = false;
-        
+
+        // Horizontal movement allowed always
         if (Gdx.input.isKeyPressed(Input.Keys.LEFT)) {
             posXPersonaje -= velocidad * deltaTime;
             seEstaMoviendo = true;
@@ -70,28 +87,60 @@ public class Main extends ApplicationAdapter {
             posXPersonaje += velocidad * deltaTime;
             seEstaMoviendo = true;
         }
-        if (Gdx.input.isKeyPressed(Input.Keys.UP)) {
-            posYPersonaje += velocidad * deltaTime;
-            seEstaMoviendo = true;
+
+        // Jump: start only when key just pressed and not already jumping
+        if (Gdx.input.isKeyJustPressed(Input.Keys.UP) && !isJumping) {
+            isJumping = true;
+            velocityY = jumpVelocity;
+            jumpFrameIndex = 0;
+            tiempoAnimacion = 0;
+            personajeActual = personajeJump[0];
         }
-        if (Gdx.input.isKeyPressed(Input.Keys.DOWN)) {
-            posYPersonaje -= velocidad * deltaTime;
-            seEstaMoviendo = true;
+        // Down key for dropping/moving down (optional)
+        if (!isJumping) {
+            if (Gdx.input.isKeyPressed(Input.Keys.DOWN)) {
+                posYPersonaje -= velocidad * deltaTime;
+                seEstaMoviendo = true;
+            }
         }
-        
-        if (!seEstaMoviendo) {
+
+        if (!seEstaMoviendo && !isJumping) {
             frameActual = 0;
             tiempoAnimacion = 0;
             personajeActual = personajeWalk[0];
         }
     }
-    
+
+    private void updatePhysics(float deltaTime) {
+        if (isJumping) {
+            velocityY += gravity * deltaTime;
+            posYPersonaje += velocityY * deltaTime;
+            // Ground collision
+            if (posYPersonaje <= 170f) {
+                posYPersonaje = 170f;
+                isJumping = false;
+                velocityY = 0f;
+                jumpFrameIndex = 0;
+                tiempoAnimacion = 0;
+                personajeActual = personajeWalk[0];
+            }
+        }
+    }
+
     private void updateAnimation(float deltaTime) {
-        if (seEstaMoviendo) {
+        if (isJumping) {
+            // animate jump frames (advance until last frame, then hold)
             tiempoAnimacion += deltaTime;
             if (tiempoAnimacion >= tiempoEntreFrames) {
                 tiempoAnimacion = 0;
-                frameActual = (frameActual + 1) % 4;
+                if (jumpFrameIndex < personajeJump.length - 1) jumpFrameIndex++;
+                personajeActual = personajeJump[jumpFrameIndex];
+            }
+        } else if (seEstaMoviendo) {
+            tiempoAnimacion += deltaTime;
+            if (tiempoAnimacion >= tiempoEntreFrames) {
+                tiempoAnimacion = 0;
+                frameActual = (frameActual + 1) % personajeWalk.length;
                 personajeActual = personajeWalk[frameActual];
             }
         }
@@ -102,6 +151,9 @@ public class Main extends ApplicationAdapter {
         batch.dispose();
         fondo.dispose();
         for (Texture texture : personajeWalk) {
+            texture.dispose();
+        }
+        for (Texture texture : personajeJump) {
             texture.dispose();
         }
     }
