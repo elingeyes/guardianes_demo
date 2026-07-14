@@ -16,6 +16,7 @@ public class Main extends ApplicationAdapter {
     private Texture fondo;
     private Texture[] personajeWalk;
     private Texture[] personajeJump;
+    private Texture[] personajeCrouch;
     private Texture personajeActual;
 
     //Posicion del personaje
@@ -23,7 +24,8 @@ public class Main extends ApplicationAdapter {
     private float posYPersonaje = 170;
     private float velocidad = 200f;
     private float ancho = 50;
-    private float alto = 70;
+    private float altoNormal = 70;
+    private float altoCrouch = 70;
 
     //Animación caminata
     private int frameActual = 0;
@@ -37,6 +39,10 @@ public class Main extends ApplicationAdapter {
     private float gravity = -1000f; // px/s^2
     private float jumpVelocity = 450f;
     private int jumpFrameIndex = 0;
+
+    //Agacharse
+    private boolean isCrouching = false;
+    private int crouchFrameIndex = 0;
 
     @Override
     public void create() {
@@ -57,6 +63,11 @@ public class Main extends ApplicationAdapter {
         personajeJump[1] = new Texture("characters/player/guardian/jump/jump_2.png");
         personajeJump[2] = new Texture("characters/player/guardian/jump/jump_3.png");
 
+        // Crouch frames
+        personajeCrouch = new Texture[2];
+        personajeCrouch[0] = new Texture("characters/player/guardian/crouch/crouch_1.png");
+        personajeCrouch[1] = new Texture("characters/player/guardian/crouch/crouch_2.png");
+
         personajeActual = personajeWalk[0];
     }
 
@@ -71,12 +82,14 @@ public class Main extends ApplicationAdapter {
         ScreenUtils.clear(0.15f, 0.15f, 0.2f, 1f);
         batch.begin();
         batch.draw(fondo, 0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
-        batch.draw(personajeActual, posXPersonaje, posYPersonaje, ancho, alto);
+        float altoActual = isCrouching ? altoCrouch : altoNormal;
+        batch.draw(personajeActual, posXPersonaje, posYPersonaje, ancho, altoActual);
         batch.end();
     }
 
     private void handleInput(float deltaTime) {
         seEstaMoviendo = false;
+        isCrouching = false;
 
         // Horizontal movement allowed always
         if (Gdx.input.isKeyPressed(Input.Keys.LEFT)) {
@@ -96,15 +109,18 @@ public class Main extends ApplicationAdapter {
             tiempoAnimacion = 0;
             personajeActual = personajeJump[0];
         }
-        // Down key for dropping/moving down (optional)
-        if (!isJumping) {
-            if (Gdx.input.isKeyPressed(Input.Keys.DOWN)) {
-                posYPersonaje -= velocidad * deltaTime;
-                seEstaMoviendo = true;
-            }
+
+        // Crouch when DOWN is pressed and not jumping
+        if (!isJumping && Gdx.input.isKeyPressed(Input.Keys.DOWN)) {
+            isCrouching = true;
+            seEstaMoviendo = false; // stay in place while crouching
+            // set initial crouch frame (use second frame as resting crouch)
+            crouchFrameIndex = 1;
+            tiempoAnimacion = 0;
+            personajeActual = personajeCrouch[1];
         }
 
-        if (!seEstaMoviendo && !isJumping) {
+        if (!seEstaMoviendo && !isJumping && !isCrouching) {
             frameActual = 0;
             tiempoAnimacion = 0;
             personajeActual = personajeWalk[0];
@@ -136,6 +152,14 @@ public class Main extends ApplicationAdapter {
                 if (jumpFrameIndex < personajeJump.length - 1) jumpFrameIndex++;
                 personajeActual = personajeJump[jumpFrameIndex];
             }
+        } else if (isCrouching) {
+            // animate crouch (toggle frames or hold first)
+            tiempoAnimacion += deltaTime;
+            if (tiempoAnimacion >= tiempoEntreFrames * 2) {
+                tiempoAnimacion = 0;
+                crouchFrameIndex = (crouchFrameIndex + 1) % personajeCrouch.length;
+                personajeActual = personajeCrouch[crouchFrameIndex];
+            }
         } else if (seEstaMoviendo) {
             tiempoAnimacion += deltaTime;
             if (tiempoAnimacion >= tiempoEntreFrames) {
@@ -154,6 +178,9 @@ public class Main extends ApplicationAdapter {
             texture.dispose();
         }
         for (Texture texture : personajeJump) {
+            texture.dispose();
+        }
+        for (Texture texture : personajeCrouch) {
             texture.dispose();
         }
     }
