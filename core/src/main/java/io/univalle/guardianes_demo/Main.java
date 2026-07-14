@@ -6,6 +6,7 @@ import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.math.Rectangle;
+import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.ScreenUtils;
 import com.badlogic.gdx.graphics.OrthographicCamera;
@@ -15,13 +16,16 @@ public class Main extends ApplicationAdapter {
     // =====================================================
     // TAMAÑO DEL MUNDO
     // =====================================================
+    //Define de forma fija el ancho para todas las plataformas
     private static final int ANCHO_MUNDO = 1820;
+    //Define de forma fija el alto para todas las plataformas
     private static final int ALTO_MUNDO = 1040;
 
     // =====================================================
     // OBJETOS DE DIBUJO
     // =====================================================
 
+    //Lapiz que dibuja
     private SpriteBatch batch;
     private OrthographicCamera camera;
     private FitViewport viewport;
@@ -39,6 +43,31 @@ public class Main extends ApplicationAdapter {
     private Texture[] bloques;
 
     private Texture personajeActual;
+
+    // -----------------------------------------------------
+    // Botones táctiles
+    // -----------------------------------------------------
+    private Texture btnIzquierdaActivo;
+    private Texture btnIzquierdaInactivo;
+    private Texture btnDerechaActivo;
+    private Texture btnDerechaInactivo;
+    private Texture btnArribaActivo;
+    private Texture btnArribaInactivo;
+    private Texture btnAbajoActivo;
+    private Texture btnAbajoInactivo;
+
+    private Rectangle rectBtnIzquierda;
+    private Rectangle rectBtnDerecha;
+    private Rectangle rectBtnArriba;
+    private Rectangle rectBtnAbajo;
+
+    private boolean botonIzquierdaActivo = false;
+    private boolean botonDerechaActivo = false;
+    private boolean botonArribaActivo = false;
+    private boolean botonAbajoActivo = false;
+
+    private boolean arribaPresionadoAnterior = false;
+    private Vector3 tempCoords = new Vector3();
 
     // =====================================================
     // POSICIÓN Y TAMAÑO DEL PERSONAJE
@@ -82,6 +111,7 @@ public class Main extends ApplicationAdapter {
     // =====================================================
 
     private boolean seEstaMoviendo = false;
+    private boolean mirandoDerecha = true;
 
     // =====================================================
     // ANIMACIÓN
@@ -173,6 +203,24 @@ public class Main extends ApplicationAdapter {
         bloques[3] = new Texture("blocks/block_4.png");
 
         personajeActual = personajeWalk[0];
+
+        // ---------------------------------------------
+        // Inicializar botones táctiles
+        // ---------------------------------------------
+        btnIzquierdaActivo = new Texture("buttons/izquierda_activo.png");
+        btnIzquierdaInactivo = new Texture("buttons/izquierda_inactivo.png");
+        btnDerechaActivo = new Texture("buttons/derecha_activo.png");
+        btnDerechaInactivo = new Texture("buttons/derecha_inactivo.png");
+        btnArribaActivo = new Texture("buttons/arriba_activo.png");
+        btnArribaInactivo = new Texture("buttons/arriba_inactivo.png");
+        btnAbajoActivo = new Texture("buttons/abajo_activo.png");
+        btnAbajoInactivo = new Texture("buttons/abajo_inactivo.png");
+
+        // Regiones táctiles para los dedos pulgares (tamaño 160x160)
+        rectBtnIzquierda = new Rectangle(80, 80, 160, 160);
+        rectBtnDerecha = new Rectangle(280, 80, 160, 160);
+        rectBtnAbajo = new Rectangle(1360, 80, 160, 160);
+        rectBtnArriba = new Rectangle(1560, 240, 160, 160);
 
         inicializarPlataformas();
     }
@@ -294,19 +342,32 @@ public class Main extends ApplicationAdapter {
             altoActual = altoNormal;
         }
 
+        // Dibujar personaje con giro horizontal según hacia donde mira
         batch.draw(
             personajeActual,
             posXPersonaje,
             posYPersonaje,
             ancho,
-            altoActual
+            altoActual,
+            0,
+            0,
+            personajeActual.getWidth(),
+            personajeActual.getHeight(),
+            !mirandoDerecha, // Voltear horizontalmente si NO mira a la derecha
+            false            // No voltear verticalmente
         );
+
+        // Dibujar botones táctiles en pantalla (Activo/Inactivo según la pulsación)
+        batch.draw(botonIzquierdaActivo ? btnIzquierdaActivo : btnIzquierdaInactivo, rectBtnIzquierda.x, rectBtnIzquierda.y, rectBtnIzquierda.width, rectBtnIzquierda.height);
+        batch.draw(botonDerechaActivo ? btnDerechaActivo : btnDerechaInactivo, rectBtnDerecha.x, rectBtnDerecha.y, rectBtnDerecha.width, rectBtnDerecha.height);
+        batch.draw(botonAbajoActivo ? btnAbajoActivo : btnAbajoInactivo, rectBtnAbajo.x, rectBtnAbajo.y, rectBtnAbajo.width, rectBtnAbajo.height);
+        batch.draw(botonArribaActivo ? btnArribaActivo : btnArribaInactivo, rectBtnArriba.x, rectBtnArriba.y, rectBtnArriba.width, rectBtnArriba.height);
 
         batch.end();
     }
 
     // =====================================================
-    // ENTRADAS DEL TECLADO
+    // ENTRADAS (TECLADO Y PANTALLA TÁCTIL)
     // =====================================================
 
     private void handleInput(float deltaTime) {
@@ -314,26 +375,67 @@ public class Main extends ApplicationAdapter {
         seEstaMoviendo = false;
         estaAgachado = false;
 
-        // Mover izquierda
+        // Apagar todos los estados activos de los botones táctiles por defecto
+        botonIzquierdaActivo = false;
+        botonDerechaActivo = false;
+        botonArribaActivo = false;
+        botonAbajoActivo = false;
 
-        if (Gdx.input.isKeyPressed(Input.Keys.LEFT)) {
+        // -----------------------------------------------------
+        // Detección de toque táctil (Multi-touch de hasta 10 dedos)
+        // -----------------------------------------------------
+        for (int i = 0; i < 10; i++) {
+            if (Gdx.input.isTouched(i)) {
+                // Obtener coordenadas de toque en pantalla
+                tempCoords.set(Gdx.input.getX(i), Gdx.input.getY(i), 0);
+                // Convertir coordenadas de pantalla a coordenadas lógicas del mundo (1820x1040)
+                viewport.unproject(tempCoords);
 
+                // Comprobar si el toque está dentro de la caja de colisión (Rectangle) de cada botón
+                if (rectBtnIzquierda.contains(tempCoords.x, tempCoords.y)) {
+                    botonIzquierdaActivo = true;
+                }
+                if (rectBtnDerecha.contains(tempCoords.x, tempCoords.y)) {
+                    botonDerechaActivo = true;
+                }
+                if (rectBtnArriba.contains(tempCoords.x, tempCoords.y)) {
+                    botonArribaActivo = true;
+                }
+                if (rectBtnAbajo.contains(tempCoords.x, tempCoords.y)) {
+                    botonAbajoActivo = true;
+                }
+            }
+        }
+
+        // -----------------------------------------------------
+        // Combinar entradas de teclado y toques táctiles
+        // -----------------------------------------------------
+        boolean moverIzq = Gdx.input.isKeyPressed(Input.Keys.LEFT) || botonIzquierdaActivo;
+        boolean moverDer = Gdx.input.isKeyPressed(Input.Keys.RIGHT) || botonDerechaActivo;
+        boolean agacharsePresionado = Gdx.input.isKeyPressed(Input.Keys.DOWN) || botonAbajoActivo;
+
+        // Para saltar, detectamos cuando RECIÉN se pulsa UP, o cuando RECIÉN se toca el botón Arriba
+        boolean saltarJustPressed = Gdx.input.isKeyJustPressed(Input.Keys.UP) || (botonArribaActivo && !arribaPresionadoAnterior);
+
+        // Guardamos el estado actual del botón para la siguiente iteración (evita saltos infinitos al mantener el dedo pulsado)
+        arribaPresionadoAnterior = botonArribaActivo;
+
+        // 1. Mover a la izquierda
+        if (moverIzq) {
             posXPersonaje -= velocidadMovimiento * deltaTime;
             seEstaMoviendo = true;
+            mirandoDerecha = false; // El personaje mira a la izquierda
         }
 
-        // Mover derecha
-
-        if (Gdx.input.isKeyPressed(Input.Keys.RIGHT)) {
-
+        // 2. Mover a la derecha
+        if (moverDer) {
             posXPersonaje += velocidadMovimiento * deltaTime;
             seEstaMoviendo = true;
+            mirandoDerecha = true; // El personaje mira a la derecha
         }
 
-        // Saltar
-
-        if (Gdx.input.isKeyJustPressed(Input.Keys.UP) && !estaSaltando) {
-
+        // 3. Saltar
+        if (saltarJustPressed && !estaSaltando) {
             estaSaltando = true;
             velocidadY = VELOCIDAD_SALTO;
 
@@ -343,10 +445,8 @@ public class Main extends ApplicationAdapter {
             personajeActual = personajeJump[0];
         }
 
-        // Agacharse
-
-        if (!estaSaltando && Gdx.input.isKeyPressed(Input.Keys.DOWN)) {
-
+        // 4. Agacharse
+        if (!estaSaltando && agacharsePresionado) {
             estaAgachado = true;
 
             crouchFrameIndex = 1;
@@ -355,10 +455,8 @@ public class Main extends ApplicationAdapter {
             personajeActual = personajeCrouch[1];
         }
 
-        // Quieto
-
+        // 5. Estado de reposo (Quieto)
         if (!seEstaMoviendo && !estaSaltando && !estaAgachado) {
-
             frameActual = 0;
             tiempoAnimacion = 0;
 
@@ -629,5 +727,15 @@ public class Main extends ApplicationAdapter {
         for (Texture texture : bloques) {
             texture.dispose();
         }
+
+        // Liberar texturas de los botones táctiles
+        if (btnIzquierdaActivo != null) btnIzquierdaActivo.dispose();
+        if (btnIzquierdaInactivo != null) btnIzquierdaInactivo.dispose();
+        if (btnDerechaActivo != null) btnDerechaActivo.dispose();
+        if (btnDerechaInactivo != null) btnDerechaInactivo.dispose();
+        if (btnArribaActivo != null) btnArribaActivo.dispose();
+        if (btnArribaInactivo != null) btnArribaInactivo.dispose();
+        if (btnAbajoActivo != null) btnAbajoActivo.dispose();
+        if (btnAbajoInactivo != null) btnAbajoInactivo.dispose();
     }
 }
