@@ -5,6 +5,8 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.math.Rectangle;
+import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.ScreenUtils;
 
 /** {@link com.badlogic.gdx.ApplicationListener} implementation shared by all platforms. */
@@ -17,6 +19,7 @@ public class Main extends ApplicationAdapter {
     private Texture[] personajeWalk;
     private Texture[] personajeJump;
     private Texture[] personajeCrouch;
+    private Texture[] bloques;
     private Texture personajeActual;
 
     //Posicion del personaje
@@ -68,6 +71,13 @@ public class Main extends ApplicationAdapter {
         personajeCrouch[0] = new Texture("characters/player/guardian/crouch/crouch_1.png");
         personajeCrouch[1] = new Texture("characters/player/guardian/crouch/crouch_2.png");
 
+        // Bloques
+        bloques = new Texture[4];
+        bloques[0] = new Texture("blocks/block_1.png");
+        bloques[1] = new Texture("blocks/block_2.png");
+        bloques[2] = new Texture("blocks/block_3.png");
+        bloques[3] = new Texture("blocks/block_4.png");
+
         personajeActual = personajeWalk[0];
     }
 
@@ -82,6 +92,13 @@ public class Main extends ApplicationAdapter {
         ScreenUtils.clear(0.15f, 0.15f, 0.2f, 1f);
         batch.begin();
         batch.draw(fondo, 0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
+        
+        // Dibujar bloques como plataformas
+        batch.draw(bloques[0], 80, 250, 80, 80);      // Bloque 1
+        batch.draw(bloques[1], 200, 300, 80, 80);     // Bloque 2
+        batch.draw(bloques[2], 320, 280, 80, 80);     // Bloque 3
+        batch.draw(bloques[3], 440, 320, 80, 80);     // Bloque 4
+        
         float altoActual = isCrouching ? altoCrouch : altoNormal;
         batch.draw(personajeActual, posXPersonaje, posYPersonaje, ancho, altoActual);
         batch.end();
@@ -181,6 +198,9 @@ public class Main extends ApplicationAdapter {
             texture.dispose();
         }
         for (Texture texture : personajeCrouch) {
+            texture.dispose();
+        }
+        for (Texture texture : bloques) {
             texture.dispose();
         }
     }
